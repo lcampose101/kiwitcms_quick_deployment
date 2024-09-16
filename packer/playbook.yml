@@ -1,0 +1,75 @@
+- name: Install prerequisites for the KiwiTCMS server image to be used
+  hosts: default
+  become: yes
+  vars:
+    pkg_list:
+      - apt-listchanges
+      - apt-transport-https
+      - build-essentials
+      - ca-certificates
+      - cmake
+      - containerd.io 
+      - curl
+      - cmake
+      - cython3
+      - dictionaries-common
+      - docker-ce
+      - docker-ce-cli
+      - docker-compose-plugin
+      - g++-8
+      - gcc-8
+      - git
+      - gnupg
+      - gstreamer1.0-libav
+      - libcurl3-gnutls
+      - libcurl4
+      - libcurl4-openssl-dev
+      - libpq-dev
+      - libsqlite3-dev
+      - libssl-dev
+      - libyaml-dev
+      - libwoff1
+      - libopus0
+      - libwebpdmux2
+      - libhardfbuzz-icu0
+      - libenchant-2-2
+      - libsecret-1-0
+      - libhyphen0
+      - libflite1
+      - libegl1
+      - libevdev2
+      - libgles2
+      - netcat
+      - pkg-config
+      - sudo
+      - ufw
+      - unattended-upgrades
+      - unzip
+      - zip
+      - zlib1g-dev
+
+  tasks:
+    - name: Stop services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      with_items:
+        - apt-daily
+        - apt-daily.timer
+        - apt-daily-upgrade
+
+    - name: Add docker signing key
+      ansible.builtin.apt_key:
+        url: "https://download.docker.com/linux/ubuntu/gpg"
+        state: present
+
+    - name: add docker repo
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: preset
+        filename: docker
+        update_cache: no
+
+    - name: Wait for automatic system updates to complete
+      script: files/wait_for_updates.sh
