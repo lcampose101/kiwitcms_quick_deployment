@@ -73,3 +73,78 @@
 
     - name: Wait for automatic system updates to complete
       script: files/wait_for_updates.sh
+
+    - name: Wait until apt lock is released
+      shell: lsof -w /var/lib/apt/lists/lock | wc -l
+      register: lock
+      until: lock.stdout == "0"
+      retries: 10
+      delays: 10
+
+    - name: Update apt list
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name: "{{ pkg_list }}"
+        state: present
+
+    - name: Update to latest
+      ansible.builtin.apt:
+        name: "*"
+        state: latest
+
+    # Make sure to set it to a timezone that works for your team and necessities
+    - name: Set timezone to EST
+      timezone:
+        name: America/New_York
+
+    - name: Ensure the locale is set
+      locale_gen:
+        name: en_US.UTF-8
+        state: present
+
+    - name: Adding the kiwi group
+      group:
+        name: kiwi
+        state: present  
+
+    - name: Adding kiwi user
+      user:
+        name=kiwi
+        group=kiwi
+        shell=/bin/bash
+        password= #add a encrypted password here
+        groups=sudo,docker
+
+    - name: Adding kiwi pub key
+      authorized_keys:
+        user: kiwi
+        key: "{{ item }}"
+        state: present
+        exclusive: yes
+      with_file:
+        - ../files/example_ssh_key.pub
+
+    - name: Enable ufw
+      community.general.ufw:
+        state: enabled
+        policy: deny
+
+    - name: Allow ssh
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Rate-limit ssh
+      community.general.ufw:
+        rule: limit
+        port: ssh
+        proto: tcp
+
+  handlers:
+    - name: restart ssh
+      service: name=sshd
+        state: restarted
+        
