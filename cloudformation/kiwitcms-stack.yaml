@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Kiwi TCMS Deployment on EC2 using Docker'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t2.micro, t3.small]
+    Description: EC2 instance type.
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access.
+  AMIId:
+    Type: String
+    Description: The ID of the AMI built by Packer.
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: Kiwi TCMS database password.
+
+Resources:
+  KiwitcmsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH, HTTP, and HTTPS
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  KiwitcmsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: !Ref AMIId
+      SecurityGroups:
+        - !Ref KiwitcmsSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y docker-compose-plugin
+          mkdir -p /home/ubuntu/kiwitcms
+          cat <<EOT > /home/ubuntu/kiwitcms/docker-compose.yml
+          ${file("../../docker-compose.yml")}
+          EOT
+          cat <<EOT > /home/ubuntu/kiwitcms/.env
+          KIWI_DB_PASSWORD=${DBPassword}
+          KIWI_DB_HOST=db
+          KIWI_DB_NAME=kiwitcms
+          KIWI_DB_USER=kiwitcms
+          EOT
+          cd /home/ubuntu/kiwitcms
+          docker compose up -d
+
+Outputs:
+  InstancePublicIP:
+    Description: Public IP of the Kiwi TCMS instance
+    Value: !GetAtt KiwitcmsInstance.PublicIp

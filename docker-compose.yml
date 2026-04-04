@@ -1,0 +1,32 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:13-alpine
+    restart: always
+    volumes:
+      - kiwi_db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=kiwitcms
+      - POSTGRES_PASSWORD=${KIWI_DB_PASSWORD}
+      - POSTGRES_DB=kiwitcms
+
+  kiwi_web:
+    image: kiwitcms/kiwi:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - kiwi_uploads:/Kiwi/uploads
+    environment:
+      - KIWI_DB_HOST=db
+      - KIWI_DB_NAME=kiwitcms
+      - KIWI_DB_USER=kiwitcms
+      - KIWI_DB_PASSWORD=${KIWI_DB_PASSWORD}
+    depends_on:
+      - db
+
+volumes:
+  kiwi_db_data:
+  kiwi_uploads:
